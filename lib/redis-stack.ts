@@ -1,11 +1,11 @@
 import * as cdk from '@aws-cdk/core';
 import * as redis from '@aws-cdk/aws-elasticache';
 
-import { IVpc } from '@aws-cdk/aws-ec2';
+import { ISecurityGroup, IVpc } from '@aws-cdk/aws-ec2';
 
 interface RedisStackProps extends cdk.StackProps {
   vpc: IVpc;
-  redisSecurityGroup: string;
+  redisSecurityGroup: ISecurityGroup;
 }
 
 export class RedisStack extends cdk.Stack {
@@ -38,7 +38,7 @@ export class RedisStack extends cdk.Stack {
       numCacheNodes: 1,
       cacheSubnetGroupName: redisSubnetGroup.ref,
       clusterName: `${projectName}${env}`,
-      vpcSecurityGroupIds: [redisSecurityGroup]
+      vpcSecurityGroupIds: [redisSecurityGroup.securityGroupId]
     });
     
     // Define this redis cluster is depends on redis subnet group created first
