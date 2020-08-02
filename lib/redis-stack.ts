@@ -22,13 +22,13 @@ export class RedisStack extends cdk.Stack {
     // Get all private subnet ids
     const privateSubnets = vpc.privateSubnets.map((subnet) => {
       return subnet.subnetId
-    })
+    });
 
     // Create redis subnet group from private subnet ids
     const redisSubnetGroup = new redis.CfnSubnetGroup(this, 'RedisSubnetGroup', {
       subnetIds: privateSubnets,
       description: "Subnet group for redis"
-    })
+    });
 
     // Create Redis Cluster
     const redisCluster = new redis.CfnCacheCluster(this, 'RedisCluster', {
@@ -37,11 +37,11 @@ export class RedisStack extends cdk.Stack {
       engine: 'redis',
       numCacheNodes: 1,
       cacheSubnetGroupName: redisSubnetGroup.ref,
-      clusterName: `${projectName}-redis-${env}`,      
+      clusterName: `${projectName}${env}`,
       vpcSecurityGroupIds: [redisSecurityGroup]
-    })
+    });
     
     // Define this redis cluster is depends on redis subnet group created first
-    redisCluster.addDependsOn(redisSubnetGroup)
+    redisCluster.addDependsOn(redisSubnetGroup);
   }
 }
