@@ -1,19 +1,17 @@
-# Redis
-
 Use this CDK stack to create a redis cluster and allow bastion host to access it.
 
-![Redis architecture](https://github.com/devopsrepohq/redis/blob/master/_docs/redis.png?raw=true)
+![Redis architecture](https://images.prismic.io/devopsrepo/fd205ac2-9746-406c-ad24-1a744352272e_redis.png?auto=compress,format)
 
-# What is it?
+## What is it?
 
 Amazon ElastiCache allows you to seamlessly set up, run, and scale popular open-Source compatible in-memory data stores in the cloud.
 
-# Features
+## Features
 
 - [x] Deploy a redis clusters
 - [x] Setup to allow bastion host to access it
 
-# Prerequisites
+## Prerequisites
 
 You will need the following before utilize this CDK stack:
 
@@ -24,13 +22,13 @@ You will need the following before utilize this CDK stack:
 - [AWS CDK Tookit](https://cdkworkshop.com/15-prerequisites/500-toolkit.html)
 - [AWS Toolkit VSCode Extension](https://github.com/devopsrepohq/aws-toolkit)
 
-# Stack Explain
+## Stack Explain
 
-## cdk.json
+### cdk.json
 
 Define project-name, env and profile context variables in cdk.json
 
-```
+```json
 {
   "context": {
     "project-name": "container",
@@ -40,11 +38,11 @@ Define project-name, env and profile context variables in cdk.json
 }
 ```
 
-## lib/vpc-stack.ts
+### lib/vpc-stack.ts
 
 Setup standard VPC with public, private, and isolated subnets.
 
-```
+```javascript
 const vpc = new ec2.Vpc(this, 'Vpc', {
   maxAzs: 3,
   natGateways: 1,
@@ -76,21 +74,21 @@ const vpc = new ec2.Vpc(this, 'Vpc', {
 
 Create flowlog and log the vpc traffic into cloudwatch
 
-```
+```javascript
 vpc.addFlowLog('FlowLog');
 ```
 
-## lib/security-stack.ts
+### lib/security-stack.ts
 
 Get vpc create from vpc stack
 
-```
+```javascript
 const { vpc } = props;
 ```
 
 Create security group for bastion host
 
-```
+```javascript
 const bastionSecurityGroup = new ec2.SecurityGroup(this, 'BastionSecurityGroup', {
   vpc: vpc,
   allowAllOutbound: true,
@@ -106,13 +104,13 @@ const bastionSecurityGroup = new ec2.SecurityGroup(this, 'BastionSecurityGroup',
 
 Allow ssh access to bastion host
 
-```
+```javascript
 bastionSecurityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(22), 'SSH access');
 ```
 
 Create security group for redis
 
-```
+```javascript
 const redisSecurityGroup = new ec2.SecurityGroup(this, 'RedisSecurityGroup', {
   vpc: vpc,
   allowAllOutbound: true,
@@ -123,27 +121,27 @@ const redisSecurityGroup = new ec2.SecurityGroup(this, 'RedisSecurityGroup', {
 
 Allow access from bastion host
 
-```
+```javascript
 redisSecurityGroup.addIngressRule(bastionSecurityGroup, ec2.Port.tcp(6379), 'Access from bastion host');
 ```
 
-## lib/bastion-stack.ts
+### lib/bastion-stack.ts
 
 Get the vpc and bastionSecurityGroup from vpc and security stacks.
 
-```
+```javascript
 const { vpc, bastionSecurityGroup } = props;
 ```
 
 Get profile from context variables
 
-```
+```javascript
 const profile = this.node.tryGetContext('profile');
 ```
 
 Create bastion host instance in public subnet
 
-```
+```javascript
 const bastionHostLinux = new ec2.BastionHostLinux(this, 'BastionHostLinux', {  
   vpc: vpc,
   securityGroup: bastionSecurityGroup,
@@ -159,7 +157,7 @@ const bastionHostLinux = new ec2.BastionHostLinux(this, 'BastionHostLinux', {
 
 Display commands for connect bastion host using ec2 instance connect
 
-```
+```javascript
 const createSshKeyCommand = 'ssh-keygen -t rsa -f my_rsa_key';
 const pushSshKeyCommand = `aws ec2-instance-connect send-ssh-public-key --region ${cdk.Aws.REGION} --instance-id ${bastionHostLinux.instanceId} --availability-zone ${bastionHostLinux.instanceAvailabilityZone} --instance-os-user ec2-user --ssh-public-key file://my_rsa_key.pub ${profile ? `--profile ${profile}` : ''}`;
 const sshCommand = `ssh -o "IdentitiesOnly=yes" -i my_rsa_key ec2-user@${bastionHostLinux.instancePublicDnsName}`;
@@ -169,24 +167,24 @@ new cdk.CfnOutput(this, 'PushSshKeyCommand', { value: pushSshKeyCommand });
 new cdk.CfnOutput(this, 'SshCommand', { value: sshCommand});
 ```
 
-## lib/redis-stack.ts
+### lib/redis-stack.ts
 
 Get the vpc and redisSecurityGroup from vpc and security stack
 
-```
+```javascript
 const { vpc, redisSecurityGroup } = props;
 ```
 
 Get projectName and env from context variables
 
-```
+```javascript
 const projectName = this.node.tryGetContext('project-name');
 const env = this.node.tryGetContext('env');
 ```
 
 Get all private subnet ids
 
-```
+```javascript
 const privateSubnets = vpc.privateSubnets.map((subnet) => {
   return subnet.subnetId
 });
@@ -194,7 +192,7 @@ const privateSubnets = vpc.privateSubnets.map((subnet) => {
 
 Create redis subnet group from private subnet ids
 
-```
+```javascript
 const redisSubnetGroup = new redis.CfnSubnetGroup(this, 'RedisSubnetGroup', {
   subnetIds: privateSubnets,
   description: "Subnet group for redis"
@@ -206,7 +204,7 @@ const redisSubnetGroup = new redis.CfnSubnetGroup(this, 'RedisSubnetGroup', {
 
 Create Redis Cluster
 
-```
+```javascript
 const redisCluster = new redis.CfnCacheCluster(this, 'RedisCluster', {
   autoMinorVersionUpgrade: true,
   cacheNodeType: 'cache.t2.small',
@@ -228,27 +226,27 @@ const redisCluster = new redis.CfnCacheCluster(this, 'RedisCluster', {
 
 Define this redis cluster is depends on redis subnet group created first
 
-```
+```javascript
 redisCluster.addDependsOn(redisSubnetGroup);
 ```
 
 Deploy all the stacks to your aws account.
 
-```
+```bash
 cdk deploy '*'
 or
 cdk deploy '*' --profile your_profile_name
 ```
 
-# Useful commands
+## Useful commands
 
-## NPM commands
+### NPM commands
 
  * `npm run build`   compile typescript to js
  * `npm run watch`   watch for changes and compile
  * `npm run test`    perform the jest unit tests
 
-## Toolkit commands
+### Toolkit commands
 
  * `cdk list (ls)`            Lists the stacks in the app
  * `cdk synthesize (synth)`   Synthesizes and prints the CloudFormation template for the specified stack(s)
@@ -264,7 +262,7 @@ cdk deploy '*' --profile your_profile_name
  * `cdk docs (doc)`           Opens the CDK API reference in your browser
  * `cdk doctor`               Checks your CDK project for potential problems
 
- # Pricing
+## Pricing
 
 As this cdk stack will create aws elasticache service, please refer the following link for pricing
 
